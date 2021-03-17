@@ -6,7 +6,7 @@ const Solution = require('./models/Solution')
 
 new Solution({
     problemKey: '11',
-    ownerId: 'temp256',
+    ownerId: '하하하',
     uploadTime: Date.now(),
     sourceCode: `test_case=int(input())
 

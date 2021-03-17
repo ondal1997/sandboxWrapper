@@ -19,7 +19,9 @@ const { compareStringGenerously } = require('./utils')
 // ================
 // ================
 
-mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false })
+mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false }).catch(error => {
+    process.exit(1)
+})
 
 // ================
 // ================
