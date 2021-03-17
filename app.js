@@ -23,9 +23,7 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
 // ================
 // ================
 
-const uniquePath = Date.now()
-const hostSystemPath = '/Users/eojin/dockerContainerLink'
-const dockerContainerPath = '/dockerContainerLink'
+const sandboxPath = __dirname + `/sandbox`
 
 const judgeSolution = async (solution) => {
     console.log(solution)
@@ -42,7 +40,7 @@ const judgeSolution = async (solution) => {
     const { sourceCode, testcaseHitCount } = solution
 
     // 전처리 : 소스코드 컴파일
-    writeFileSync(hostSystemPath + '/' + uniquePath + 'sourceCode.py', sourceCode)
+    writeFileSync(`${sandboxPath}/sourceCode.py`, sourceCode)
 
     let targetState = '맞았습니다'
 
@@ -51,46 +49,45 @@ const judgeSolution = async (solution) => {
         const testcase = testcases[i]
 
         // 테스트케이스 인풋 작성
-        writeFileSync(hostSystemPath + '/' + uniquePath + 'input.txt', testcase.input)
+        writeFileSync(`${sandboxPath}/input.txt`, testcase.input)
 
         // 테스트케이스 실행
-        const script =
-            `docker exec makeJudger2 /usr/lib/judger/libjudger.so ` +
-            // problem
-            `--log_path=${__dirname}/sandbox.log ` + 
+        const sandboxScript =
+            `${sandboxPath}/sandbox.so ` +
+            `--log_path=${sandboxPath}/sandbox.log ` + 
             `--exe_path=${process.env.PY3_PATH} --seccomp_rule_name=general ` +
             `--max_cpu_time=${timeLimit} --max_memory=${memoryLimit * 1024 * 1024} ` +
-            `--input_path=${dockerContainerPath + '/' + uniquePath + 'input.txt'} ` +
-            // solution
-            `--args=${dockerContainerPath + '/' + uniquePath + 'sourceCode.py'} ` +
-            `--output_path=${dockerContainerPath + '/' + uniquePath + 'res.txt'} --error_path=${dockerContainerPath + '/' + uniquePath + 'error.txt'}`
+            `--input_path=${sandboxPath}/input.txt ` +
+            `--args=${sandboxPath}/sourceCode.py ` +
+            `--output_path=${sandboxPath}/res.txt ` +
+            `--error_path=${sandboxPath}/error.txt`
 
-        const stdout = JSON.parse(execSync(script).toString())
+        const sandboxStdout = JSON.parse(execSync(sandboxScript).toString())
 
         //////////////////////
         // 구동 결과 분기
-        if (stdout.result === 1 || stdout.result === 2) {
+        if (sandboxStdout.result === 1 || sandboxStdout.result === 2) {
             targetState = '시간 초과'
             break
         }
 
-        if (stdout.result === 3) {
+        if (sandboxStdout.result === 3) {
             targetState = '메모리 초과'
             break
         }
 
-        if (stdout.result === 4) {
+        if (sandboxStdout.result === 4) {
             targetState = '런타임 에러'
             break
         }
 
-        if (stdout.result === 5) {
+        if (sandboxStdout.result === 5) {
             targetState = '서버 에러'
             break
         }
 
         // 테스트케이스 결과 비교
-        const res = readFileSync(hostSystemPath + '/' + uniquePath + 'res.txt').toString()
+        const res = readFileSync(`${sandboxPath}/res.txt`).toString()
 
         if (compareStringGenerously(res, testcase.output)) {
             solution = await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { testcaseHitCount: i + 1 }, { new: true })
