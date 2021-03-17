@@ -27,7 +27,7 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
 // ================
 // ================
 
-const sandboxPath = __dirname + `/sandbox`
+const sandboxPath = __dirname + `/sandbox_${process.pid}`
 
 const judgeSolution = async (solution) => {
     console.log(solution)
@@ -57,7 +57,7 @@ const judgeSolution = async (solution) => {
 
         // 테스트케이스 실행
         const sandboxScript =
-            `${sandboxPath}/sandbox.so ` +
+            `${__dirname}/sandbox.so ` +
             `--log_path=${sandboxPath}/sandbox.log ` + 
             `--exe_path=${process.env.PY3_PATH} --seccomp_rule_name=general ` +
             `--max_cpu_time=${timeLimit} --max_memory=${memoryLimit * 1024 * 1024} ` +
