@@ -7,7 +7,8 @@ const Solution = require('./models/Solution')
 require('dotenv').config()
 
 // fileSync, execSync 추가
-const fs, { writeFileSync, readFileSync } = require('fs')
+const fs = require('fs')
+const { writeFileSync, readFileSync } = require('fs')
 const { execSync } = require('child_process')
 
 const { compareStringGenerously } = require('./utils')
