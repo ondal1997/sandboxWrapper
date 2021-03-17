@@ -4,6 +4,8 @@ const mongoose = require('mongoose')
 const Problem = require('./models/Problem')
 const Solution = require('./models/Solution')
 
+require('dotenv').config()
+
 // fileSync, execSync 추가
 const { writeFileSync, readFileSync } = require('fs')
 const { execSync } = require('child_process')
