@@ -74,6 +74,7 @@ const judgeSolution = async (solution) => {
 
         //////////////////////
         // 구동 결과 분기
+        console.log(sandboxStdout.result)
         if (sandboxStdout.result === 1 || sandboxStdout.result === 2) {
             targetState = '시간 초과'
             break
