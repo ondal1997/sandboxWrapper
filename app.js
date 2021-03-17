@@ -28,6 +28,9 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
 // ================
 
 const sandboxPath = __dirname + `/sandbox_${process.pid}`
+if (!fs.existsSync(sandboxPath)){
+    fs.mkdirSync(sandboxPath)
+}
 
 const judgeSolution = async (solution) => {
     console.log(solution)
