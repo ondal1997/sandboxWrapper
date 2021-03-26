@@ -41,4 +41,4 @@ const compareStringGenerously = (_a, _b) => {
     return true
 }
 
-module.exports = { compareStringGenerously }
+module.exports = compareStringGenerously

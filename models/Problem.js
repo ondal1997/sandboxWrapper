@@ -1,12 +1,19 @@
 const mongoose = require('mongoose')
 
-// TODO : langs[], categories[] 추가
+// coj-BE와 같아야함!!
 module.exports = mongoose.model('Problem', {
-    key: { type: String, required: true, unique: true },
-    ownerId: { type: String, required: true },
-    name: { type: String, required: true },
+    key: { type: Number, required: true, index: true },
+    ownerId: { type: String, required: true, index: true },
     uploadTime: { type: Date, required: true },
+    version: { type: Number, required: true },
+
+    title: { type: String, required: true },
     description: { type: String, required: true },
+    categories: [
+        {
+            type: String
+        }
+    ],
     timeLimit: { type: Number, require: true },
     memoryLimit: { type: Number, require: true },
     examples: [

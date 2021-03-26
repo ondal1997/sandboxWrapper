@@ -11,10 +11,14 @@ const fs = require('fs')
 const { writeFileSync, readFileSync } = require('fs')
 const { execSync } = require('child_process')
 
-const { compareStringGenerously } = require('./utils')
+const compareStringGenerously = require('./compareStringGenerously')
 
-// TODO : github에 올리기, reconnect 설정 / 언어확장, 솔루션 결과스키마 추가(시간복잡도, 공간복잡도)
-//        채점서버통합감시시스템, judgeSolution병렬처리
+// TODO : github에 올리기, 언어확장(컴파일 로직 추가-컴파일 에러처리)
+
+// 우선 순위가 낮은 TODOs :
+//        원클릭 배포
+//        채점서버통합감시시스템
+//        채점 병렬처리
 
 // ================
 // ================
@@ -28,7 +32,7 @@ mongoose.connect(process.env.MONGO_URL, { useNewUrlParser: true, useUnifiedTopol
 // ================
 // ================
 
-const sandboxPath = __dirname + `/sandbox_${process.pid}`
+const sandboxPath = __dirname + '/sandboxes' + `/sandbox_${process.pid}`
 if (!fs.existsSync(sandboxPath)){
     fs.mkdirSync(sandboxPath)
 }
@@ -38,19 +42,20 @@ const judgeSolution = async (solution) => {
 
     const problem = await Problem.findOne({ key: solution.problemKey })
 
-    if (!problem) {
+    if (!problem || problem.version !== solution.problemVersion) {
         console.log('대응하는 문제 정보 없음')
-        await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { state: '문제 유실' })
+        await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { state: 8 })
         return
     }
 
     const { timeLimit, memoryLimit, testcases } = problem
     const { sourceCode, testcaseHitCount } = solution
 
-    // 전처리 : 소스코드 컴파일
+    // 전처리 : 소스코드 컴파일을 이곳에서 한다.
     writeFileSync(`${sandboxPath}/sourceCode.py`, sourceCode)
 
-    let targetState = '맞았습니다'
+    let targetState = 2 // 맞았습니다
+    let judgeError = `no error`
 
     for (let i = testcaseHitCount; i < testcases.length; i++) {
         console.log('>>>>>> 테스트케이스 ' + i)
@@ -62,13 +67,13 @@ const judgeSolution = async (solution) => {
         // 테스트케이스 실행
         const sandboxScript =
             `${__dirname}/sandbox.so ` +
-            `--log_path=${sandboxPath}/sandbox.log ` + 
+            `--log_path=${sandboxPath}/sandbox.log ` + // 샌드박스 로그
             `--exe_path=${process.env.PY3_PATH} --seccomp_rule_name=general ` +
             `--max_cpu_time=${timeLimit} --max_memory=${memoryLimit * 1024 * 1024} ` +
             `--input_path=${sandboxPath}/input.txt ` +
             `--args=${sandboxPath}/sourceCode.py ` +
             `--output_path=${sandboxPath}/res.txt ` +
-            `--error_path=${sandboxPath}/error.txt`
+            `--error_path=${sandboxPath}/error.txt` // 에러
 
         const sandboxStdout = JSON.parse(execSync(sandboxScript).toString())
 
@@ -76,30 +81,38 @@ const judgeSolution = async (solution) => {
         // 구동 결과 분기
         console.log(sandboxStdout)
         if (sandboxStdout.result === 1 || sandboxStdout.result === 2) {
-            targetState = '시간 초과'
+            targetState = 4 // 시간 초과
             break
         }
 
         if (sandboxStdout.result === 3) {
-            targetState = '메모리 초과'
+            targetState = 5 // 메모리 초과
             break
         }
 
         if (sandboxStdout.result === 4) {
-            targetState = '런타임 에러'
+            targetState = 7 // 런타임 에러
+            judgeError = readFileSync(`${sandboxPath}/error.txt`).toString()
             break
         }
 
-        if (sandboxStdout.result === 5) {
-            targetState = '서버 에러'
+        if (sandboxStdout.result !== 0) {
+            targetState = 9 // 서버 실패
             break
         }
+
+        const curMemory = Number.parseInt(sandboxStdout.memory / (1024 * 1024))
+        const curTime = Number.parseInt(sandboxStdout.cpu_time)
 
         // 테스트케이스 결과 비교
         const res = readFileSync(`${sandboxPath}/res.txt`).toString()
 
         if (compareStringGenerously(res, testcase.output)) {
-            solution = await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { testcaseHitCount: i + 1 }, { new: true })
+
+            const maxMemory = solution.maxMemory > curMemory ? solution.maxMemory : curMemory
+            const maxTime = solution.maxTime > curTime ? solution.maxTime : curTime
+
+            solution = await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { testcaseHitCount: i + 1, maxMemory, maxTime }, { new: true })
 
             if (!solution) {
                 console.log('solution 선점 당함')
@@ -107,27 +120,31 @@ const judgeSolution = async (solution) => {
             }
         }
         else {
-            targetState = '틀렸습니다'
+            targetState = 3 // 틀렸습니다
             break
         }
     }
 
     console.log(targetState)
-    await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { state: targetState })
+    console.log(judgeError)
+    await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { state: targetState, judgeError })
 }
 
 const tryToJudge = async () => {
     try {
-        let solution = await Solution.findOneAndUpdate({ state: 'idle' }, { state: 'judging' }, { sort: { uploadTime: 1 }, new: true })
+        // 새로운 솔루션을 찾는다.
+        let solution = await Solution.findOneAndUpdate({ state: 0 }, { state: 1 }, { sort: { uploadTime: 1 }, new: true })
 
         if (!solution) {
-            solution = await Solution.findOne({ state: 'judging' }, {}, { sort: { uploadTime: 1 } })
+            // 솔루션을 선점한다.
+            solution = await Solution.findOne({ state: 1 }, {}, { sort: { uploadTime: 1 } })
         }
 
         if (!solution) {
             return false
         }
 
+        // 해당 솔루션을 채점한다.
         console.log('tryToJudge(): 채점 개시')
         await judgeSolution(solution)
         console.log('tryToJudge(): 채점 종료')
@@ -150,6 +167,3 @@ const loop = async () => {
 }
 
 loop()
-
-// TODO : 예외 처리 추가
-// db-query-fail, 채점 중 problem 수정, 삭제 등
