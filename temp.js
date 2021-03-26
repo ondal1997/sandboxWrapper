@@ -5,8 +5,8 @@ mongoose.connect('mongodb://localhost:27017/judge0316_0', { useNewUrlParser: tru
 const Solution = require('./models/Solution')
 
 new Solution({
-    problemKey: '11',
-    ownerId: '하하하',
+    problemKey: '16',
+    ownerId: '뷁',
     uploadTime: Date.now(),
     sourceCode: `test_case=int(input())
 

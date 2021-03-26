@@ -5,12 +5,12 @@ mongoose.connect('mongodb://localhost:27017/judge0316_0', { useNewUrlParser: tru
 const Problem = require('./models/Problem')
 
 new Problem({
-    key: '11',
+    key: '16',
     ownerId: 'ondal1997',
     name: 'A+B+C',
     uploadTime: Date.now(),
     description: 'print A+B+C',
-    timeLimit: 20,
+    timeLimit: 5000,
     memoryLimit: 128,
     examples: [],
     testcases: [
