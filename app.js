@@ -37,6 +37,22 @@ if (!fs.existsSync(sandboxPath)){
     fs.mkdirSync(sandboxPath)
 }
 
+// 전처리
+const getExePath = (language, sourceCode) => {
+    let exePath = '';
+
+    switch (language) {
+        case 'c++':
+            break;
+        case 'python3':
+        default:
+        writeFileSync(`${sandboxPath}/sourceCode.py`, sourceCode);
+        exePath = `--exe_path=${process.env.PY3_PATH} --args=${sandboxPath}/sourceCode.py `;
+    }
+
+    return exePath;
+}
+
 const judgeSolution = async (solution) => {
     console.log(solution)
 
@@ -49,10 +65,19 @@ const judgeSolution = async (solution) => {
     }
 
     const { timeLimit, memoryLimit, testcases } = problem
-    const { sourceCode, testcaseHitCount } = solution
+    const { sourceCode, testcaseHitCount, language } = solution
 
     // 전처리 : 소스코드 컴파일을 이곳에서 한다.
-    writeFileSync(`${sandboxPath}/sourceCode.py`, sourceCode)
+    let exePath;
+    try {
+        exePath = getExePath(language, sourceCode)
+    }
+    catch (err) {
+        console.log('컴파일 에러 발생')
+        console.error(err)
+        await Solution.findOneAndUpdate({ _id: solution._id, state: solution.state, testcaseHitCount: solution.testcaseHitCount }, { state: 6, judgeError: err })
+        return
+    }
 
     let targetState = 2 // 맞았습니다
     let judgeError = `no error`
@@ -68,10 +93,10 @@ const judgeSolution = async (solution) => {
         const sandboxScript =
             `${__dirname}/sandbox.so ` +
             `--log_path=${sandboxPath}/sandbox.log ` + // 샌드박스 로그
-            `--exe_path=${process.env.PY3_PATH} --seccomp_rule_name=general ` +
+            `--seccomp_rule_name=${'general'} ` +
+            `${exePath}` +
             `--max_cpu_time=${timeLimit} --max_memory=${memoryLimit * 1024 * 1024} ` +
             `--input_path=${sandboxPath}/input.txt ` +
-            `--args=${sandboxPath}/sourceCode.py ` +
             `--output_path=${sandboxPath}/res.txt ` +
             `--error_path=${sandboxPath}/error.txt` // 에러
 
