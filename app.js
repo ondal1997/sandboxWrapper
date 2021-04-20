@@ -58,7 +58,7 @@ const getExePath = (language, sourceCode) => {
             if (!line.includes('sourceCode.cpp')) {
                 return line;
             }
-            return line.splice(line.indexOf('error: '));
+            return line.slice(line.indexOf('error: '));
         });
       }
       exePath = `--exe_path=${sandboxPath}/a.o `;
