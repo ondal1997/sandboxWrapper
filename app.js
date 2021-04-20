@@ -59,7 +59,7 @@ const getExePath = (language, sourceCode) => {
                 return line;
             }
             return line.slice(line.indexOf('error: '));
-        });
+        }).join('\n');
       }
       exePath = `--exe_path=${sandboxPath}/a.o `;
       break;
