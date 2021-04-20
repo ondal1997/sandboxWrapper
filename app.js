@@ -54,7 +54,12 @@ const getExePath = (language, sourceCode) => {
       try {
         execSync(complieScript).toString();
       } catch (err) {
-        throw err.stderr.toString();
+        throw err.stderr.toString().split('\n').map((line) => {
+            if (!line.includes('sourceCode.cpp')) {
+                return line;
+            }
+            return line.splice(line.indexOf('error: '));
+        });
       }
       exePath = `--exe_path=${sandboxPath}/a.o `;
       break;
