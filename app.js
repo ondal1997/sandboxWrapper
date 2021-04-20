@@ -92,7 +92,12 @@ const judgeSolution = async (solution) => {
 
         if (sandboxStdout.result === 4) {
             targetState = 7 // 런타임 에러
-            judgeError = readFileSync(`${sandboxPath}/error.txt`).toString()
+            judgeError = readFileSync(`${sandboxPath}/error.txt`).toString().split('\n').map((line) => {
+                if (!line.includes('/sourceCode.py')) {
+                    return line;
+                }
+                return `  ${line.split(', ')[1]}`
+            }).join('\n')
             break
         }
 
