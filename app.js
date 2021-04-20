@@ -50,7 +50,7 @@ const getExePath = (language, sourceCode) => {
   switch (language) {
     case "c++":
       writeFileSync(`${sandboxPath}/sourceCode.cpp`, sourceCode);
-      const complieScript = `${process.env.GPP_PATH} ${sandboxPath}/sourceCode.cpp -o ${sandboxPath}/a.o -std=c++17 `;
+      const complieScript = `${process.env.GPP_PATH} ${sandboxPath}/sourceCode.cpp -o ${sandboxPath}/a.o -O2 -Wall -lm -static -std=gnu++17 -DONLINE_JUDGE -DBOJ`;
       try {
         execSync(complieScript).toString();
       } catch (err) {
