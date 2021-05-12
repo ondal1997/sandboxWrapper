@@ -7,6 +7,7 @@ module.exports = mongoose.model('Solution', {
     uploadTime: { type: Date, required: true },
 
     state: { type: String, required: true },
+    lastUpdateTime: { type: Date }, // 마지막으로 judger로부터 가져와진 시간
     testcaseHitCount: { type: Number, required: true },
     testcaseSize: { type: Number, required: true },
     maxTime: { type: Number, required: true },

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/coders141/coj-judger/sandboxes/sandbox_46710/sourceCode.py", line 1, in <module>
+    df
+NameError: name 'df' is not defined

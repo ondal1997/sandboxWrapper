@@ -6,7 +6,7 @@ const Solution = require("./models/Solution");
 
 require("dotenv").config();
 
-// fileSync, execSync 추가
+// fileSync, execSync
 const fs = require("fs");
 const { writeFileSync, readFileSync } = require("fs");
 const { execSync } = require("child_process");
@@ -54,12 +54,20 @@ const getExePath = (language, sourceCode) => {
       try {
         execSync(complieScript).toString();
       } catch (err) {
-        throw err.stderr.toString().split('\n').map((line) => {
+        const res = [];
+        err.stderr.toString().split('\n').forEach((line) => {
             if (!line.includes('sourceCode.cpp')) {
-                return line;
+                res.push(line);
+                return;
             }
-            return line.slice(line.indexOf('error: '));
-        }).join('\n');
+            const index = line.indexOf('error: ');
+            if (index === -1) {
+              return;
+            }
+            res.push(line.slice(line.indexOf('error: ')));
+        })
+        
+        throw res.join('\n');
       }
       exePath = `--exe_path=${sandboxPath}/a.o `;
       break;
@@ -124,6 +132,22 @@ const judgeSolution = async (solution) => {
       seccompRule = "general";
   }
 
+  // 테스트케이스 수행 전, 솔루션 라스트타임 업데이트를 1회 수행해준다. (불필요한 선점을 막기 위해서)
+  solution = await Solution.findOneAndUpdate(
+    {
+      _id: solution._id,
+      state: solution.state,
+      testcaseHitCount: solution.testcaseHitCount,
+    },
+    { lastUpdateTime: Date.now() },
+    { new: true }
+  );
+  if (!solution) {
+    console.log("solution 선점 당함");
+    return;
+  }
+
+  // 테스트케이스 순차 실행
   for (let i = testcaseHitCount; i < testcases.length; i++) {
     console.log(">>>>>> 테스트케이스 " + i);
     const testcase = testcases[i];
@@ -183,6 +207,7 @@ const judgeSolution = async (solution) => {
     // 테스트케이스 결과 비교
     const res = readFileSync(`${sandboxPath}/res.txt`).toString();
 
+    // 맞았을 시
     if (compareStringGenerously(res, testcase.output)) {
       const maxMemory =
         solution.maxMemory > curMemory ? solution.maxMemory : curMemory;
@@ -194,7 +219,7 @@ const judgeSolution = async (solution) => {
           state: solution.state,
           testcaseHitCount: solution.testcaseHitCount,
         },
-        { testcaseHitCount: i + 1, maxMemory, maxTime },
+        { testcaseHitCount: i + 1, maxMemory, maxTime, lastUpdateTime: Date.now() },
         { new: true }
       );
 
@@ -225,16 +250,16 @@ const tryToJudge = async () => {
     // 새로운 솔루션을 찾는다.
     let solution = await Solution.findOneAndUpdate(
       { state: 0 },
-      { state: 1 },
+      { state: 1, lastUpdateTime: Date.now() },
       { sort: { uploadTime: 1 }, new: true }
     );
 
     if (!solution) {
-      // 솔루션을 선점한다.
-      solution = await Solution.findOne(
-        { state: 1 },
-        {},
-        { sort: { uploadTime: 1 } }
+      // 채점 중이고, 30초 이상 상태가 변경되지 않은 솔루션을 선점한다.
+      solution = await Solution.findOneAndUpdate(
+        { state: 1, lastUpdateTime: { $lte: Date.now() - 30000 } },
+        { lastUpdateTime: Date.now() },
+        { sort: { lastUpdateTime: 1 }, new: true }
       );
     }
 
